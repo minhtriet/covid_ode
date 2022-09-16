@@ -1,7 +1,13 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# #todo
+# 
+# minmax scaler
+# min: 0
+# max: Canada population
+
+# In[2]:
 
 
 import torch
@@ -16,54 +22,75 @@ from torch.utils import data
 import matplotlib.pyplot as plt
 import random
 import warnings
+
+
+from tqdm.notebook import tqdm
 # from ode_nn import Dataset_graph, train_epoch_graph, eval_epoch_graph, get_lr
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-
-# In[2]:
-
-
-canada = pd.read_csv('canada.csv')
 
 
 # In[3]:
 
 
-canada.shape
+canada = pd.read_csv('canada.csv')
 
 
 # In[4]:
 
 
-canada
+CANADA_POPULATION = 38.01e6
 
 
 # In[5]:
 
 
-canada = canada.values[:, 0:3]
+canada.shape
 
 
 # In[6]:
 
 
-canada[:, 0:3]
+TRAIN_IDX = int(canada.shape[0]*.5)
+VAL_IDX = TRAIN_IDX + int(canada.shape[0]*.1)
 
 
 # In[7]:
 
 
-##################################################################
+TRAIN_IDX, VAL_IDX
+
+
+# In[5]:
+
+
+canada
+
+
+# In[6]:
+
+
+canada = canada.values[:, 0:3] / CANADA_POPULATION
+
+
+# In[7]:
+
+
+canada[:, 0:3]
+
+
+# In[8]:
+
+
 test_idx = 131
 
 # Learning Rate
 lr = 0.01
 
 # number of historic data points for fitting
-input_steps = 10 
+input_steps = 2
 
 # forecasting horizon
-output_steps = 7
+output_steps = 2
 
 # number of epochs for training
 num_epochs = 20000
@@ -72,7 +99,9 @@ num_epochs = 20000
 data = canada[test_idx-input_steps:test_idx+output_steps]   # only 1 training sample
 y_exact = data[:,:input_steps]
 
-##################################################################
+
+# In[9]:
+
 
 model = sidartha_ode.AutoOdeSIDARTHE(len_data = output_steps+input_steps).to(device)
 
@@ -82,12 +111,14 @@ loss_fun = torch.nn.MSELoss()
 min_loss = 1
 
 ##################################################################
-
-for e in range(num_epochs):
+for e in tqdm(range(num_epochs)):
+    optimizer.zero_grad()    
+    y_approx = model(I0=data[0, 0], E0=data[0, 2], H0=data[0, 1])
+    i_e_h_approx = y_approx[:,2], y_approx[:,7], y_apprpox[:6]
+    loss = loss_fun(y_approx, y_exact)
+    loss.backward()
+    optimizer.step()
     scheduler.step()
-    y_approx = model(input_steps)
-    loss = loss_fun(y_approx[:,:,-3:], y_exact[:,:input_steps,-3:])
-    
 ######## Weighted Loss ########
 #     loss_weight = weight_fun(input_steps, function = "sqrt", feat_weight = True)
 #     loss = torch.mean(loss_weight*loss_fun(y_approx[:,:,-3:], y_exact[:,:input_steps,-3:])) 
@@ -111,20 +142,6 @@ for e in range(num_epochs):
 #         #torch.mean(torch.abs(y_approx - y_exact)[:,-7:]).data, torch.mean(torch.abs(y_approx - y_exact)[:,30:]).data
 #         for i in range(3):
 #             print(np.mean(np.abs(y_approx2*scaler - y_exact2*scaler)[:,-7:, i]))
-
-########################################################################
-name = "autoode-covid"
-y_approx = best_model(data.shape[1]).data.numpy()
-y_exact = data.data.numpy()
-print(list_csv[test_idx][:10])
-#torch.mean(torch.abs(y_approx - y_exact)[:,-7:]).data, torch.mean(torch.abs(y_approx - y_exact)[:,30:]).data
-for i in range(3):
-    print(np.mean(np.abs(y_approx*scaler - y_exact*scaler)[:,-7:, i]))
-
-torch.save({"model": best_model,
-            "preds": y_approx*scaler,
-            "trues": y_exact*scaler},
-            ".pt")
 
 
 # In[ ]:
