@@ -7,7 +7,7 @@ from torchdiffeq.torchdiffeq import odeint
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-class AutoOdeSIDARTHE(nn.Module):
+class SIDARTHEOde(nn.Module):
     def __init__(self, len_data,
                  alpha=0.57, beta=0.11, delta=0.11, gamma=0.456, epsilon=0.171, theta=0.371, zeta=0.125, eta=0.125,
                  mu=0.017, nu=0.027, tau=0.01, lambda_=0.034, rho=0.034, kappa=0.017, xi=0.017, sigma=0.017):
