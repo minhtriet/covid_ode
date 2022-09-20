@@ -18,15 +18,17 @@ class SIDARTHEOde(nn.Module):
         """
         super().__init__()
         torch.manual_seed(32)
-
+        torch.set_default_dtype(torch.float64)
         # observed: infected, death, recover
+        self.len_data = len_data
+        # just for the init, every forward round it get changed
         self.I, self.E, self.H = torch.zeros(1), torch.zeros(1), torch.zeros(1)
         # unobserved are set as torch.Parameters
-        self.S = nn.Parameter(torch.tensor([0.5]).float().to(device))
-        self.D = nn.Parameter(torch.tensor([0.5]).float().to(device)) 
-        self.A = nn.Parameter(torch.tensor([0.5]).float().to(device))
-        self.R = nn.Parameter(torch.tensor([0.5]).float().to(device))
-        self.T = nn.Parameter(torch.tensor([0.5]).float().to(device))
+        self.S = nn.Parameter(torch.tensor([0.5]).to(device))
+        self.D = nn.Parameter(torch.tensor([0.5]).to(device))
+        self.A = nn.Parameter(torch.tensor([0.5]).to(device))
+        self.R = nn.Parameter(torch.tensor([0.5]).to(device))
+        self.T = nn.Parameter(torch.tensor([0.5]).to(device))
         self.y0 = torch.tensor([self.S, self.I, self.D, self.A, self.R, self.T, self.H, self.E])
         # S susceptible
         # I infected
@@ -38,34 +40,32 @@ class SIDARTHEOde(nn.Module):
         # E extinct
         
         # transmission rate
-        self.alpha = nn.Parameter(torch.FloatTensor([alpha])).to(device)
-        self.beta = nn.Parameter(torch.FloatTensor([beta])).to(device)
-        self.gamma = nn.Parameter(torch.FloatTensor([gamma])).to(device)
-        self.delta = nn.Parameter(torch.FloatTensor([delta])).to(device)
+        self.alpha = nn.Parameter(torch.tensor([alpha])).to(device)
+        self.beta = nn.Parameter(torch.tensor([beta])).to(device)
+        self.gamma = nn.Parameter(torch.tensor([gamma])).to(device)
+        self.delta = nn.Parameter(torch.tensor([delta])).to(device)
         # detection rate
-        self.epsilon = nn.Parameter(torch.FloatTensor([epsilon])).to(device)
-        self.theta = nn.Parameter(torch.FloatTensor([theta])).to(device)
+        self.epsilon = nn.Parameter(torch.tensor([epsilon])).to(device)
+        self.theta = nn.Parameter(torch.tensor([theta])).to(device)
         # develop symptom rate
-        self.zeta = nn.Parameter(torch.FloatTensor([zeta])).to(device)   # ζ
-        self.eta = nn.Parameter(torch.FloatTensor([eta])).to(device)   # η
+        self.zeta = nn.Parameter(torch.tensor([zeta])).to(device)   # ζ
+        self.eta = nn.Parameter(torch.tensor([eta])).to(device)   # η
         # develop life-threatening symptoms rate
-        self.mu = nn.Parameter(torch.FloatTensor([mu])).to(device)  # for undetected
-        self.nu = nn.Parameter(torch.FloatTensor([nu])).to(device)  # ν for detected
+        self.mu = nn.Parameter(torch.tensor([mu])).to(device)  # for undetected
+        self.nu = nn.Parameter(torch.tensor([nu])).to(device)  # ν for detected
         # mortality rate
-        self.tau = nn.Parameter(torch.FloatTensor([tau])).to(device)
+        self.tau = nn.Parameter(torch.tensor([tau])).to(device)
         # recovery rate
-        self.lambda_ = nn.Parameter(torch.FloatTensor([lambda_])).to(device)
-        self.kappa = nn.Parameter(torch.FloatTensor([kappa])).to(device)
-        self.xi = nn.Parameter(torch.FloatTensor([xi])).to(device)  # ξ
-        self.rho = nn.Parameter(torch.FloatTensor([rho])).to(device)
-        self.sigma = nn.Parameter(torch.FloatTensor([sigma])).to(device)
-
-    # The following d*d* function will be discretized and apply RK45 method
-    # return something pointwise here
+        self.lambda_ = nn.Parameter(torch.tensor([lambda_])).to(device)
+        self.kappa = nn.Parameter(torch.tensor([kappa])).to(device)
+        self.xi = nn.Parameter(torch.tensor([xi])).to(device)  # ξ
+        self.rho = nn.Parameter(torch.tensor([rho])).to(device)
+        self.sigma = nn.Parameter(torch.tensor([sigma])).to(device)
+        #self.double()
 
     def f(self, t, y):
         S, I, D, A, R, T, H, E = y
-        return torch.tensor([S*(self.alpha*I + self.beta*D + self.gamma*A + self.delta*R),    # S
+        return torch.cat([S * (self.alpha * I + self.beta * D + self.gamma * A + self.delta * R),  # S
                              S*(self.alpha*I + self.beta*D + self.gamma*A + self.delta*R) - (self.epsilon + self.zeta + self.lambda_)*I,  # I
                              self.epsilon*I - (self.eta + self.rho)*D,   # D
                              self.zeta*I - (self.theta + self.mu + self.kappa)*A,  # A
@@ -74,34 +74,20 @@ class SIDARTHEOde(nn.Module):
                              self.lambda_*I + self.rho*D + self.kappa*A + self.xi*R + self.sigma*T,    # dH
                              self.tau*T    # E
                             ])
+        # return torch.tensor([S*(self.alpha*I + self.beta*D + self.gamma*A + self.delta*R),    # S
+        #                      S*(self.alpha*I + self.beta*D + self.gamma*A + self.delta*R) - (self.epsilon + self.zeta + self.lambda_)*I,  # I
+        #                      self.epsilon*I - (self.eta + self.rho)*D,   # D
+        #                      self.zeta*I - (self.theta + self.mu + self.kappa)*A,  # A
+        #                      self.eta*D + self.theta*A - (self.nu + self.xi)*R,   # R
+        #                      self.mu*A + self.nu*R - (self.sigma + self.tau)*T,     # dTdt
+        #                      self.lambda_*I + self.rho*D + self.kappa*A + self.xi*R + self.sigma*T,    # dH
+        #                      self.tau*T    # E
+        #                     ], dtype=torch.float64, requires_grad=True)
 
-
-    # def dSdt(self, t, S):
-    #     return -torch.take(S, t)*(self.alpha*torch.take(self.I, t) + self.beta*self.D + self.gamma*self.A + self.delta*self.R)
-    #
-    # def dIdt(self, t, I):
-    #     return self.S*(self.alpha*I + self.beta*self.D + self.gamma*self.A + self.delta*self.R) - \
-    #            (self.epsilon + self.zeta + self.lambda_)*I
-    #
-    # def dDdt(self, t, D):
-    #     return self.epsilon*self.I - (self.eta + self.rho)*D
-    #
-    # def dAdt(self, t, A):
-    #     return self.zeta*self.I - (self.theta + self.mu + self.kappa)*A
-    #
-    # def dRdt(self, t, R):
-    #     return self.eta*self.D + self.theta*self.A - (self.nu + self.xi)*R
-    #
-    # def dTdt(self, t, T):
-    #     return self.mu*self.A + self.nu*self.R - (self.sigma + self.tau)*T
-    #
-    # def dHdt(self, t, H):
-    #     return self.lambda_*self.I + self.rho*self.D + self.kappa*self.A + self.xi*self.R * self.sigma*self.T
-    #
-    # def dEdt(self, t, E):
-    #     return self.tau*self.T
-
-    def forward(self, input_steps):
-        time_range = torch.linspace(0, input_steps, 1000)
-        return odeint(self.f, t=time_range, y0=self.y0, method='rk4')
+    def forward(self, I0, E0, H0):
+        self.y0[1] = I0 if I0 else self.y0[1]
+        self.y0[7] = E0 if E0 else self.y0[7]
+        self.y0[6] = H0 if H0 else self.y0[6]
+        time_range = torch.linspace(0, self.len_data, self.len_data+1)
+        return odeint(self.f, t=time_range, y0=self.y0, method='rk4')#.double()
 
