@@ -8,7 +8,7 @@ class CovidDataset(Dataset):
         self.len_output = len_output
 
     def __len__(self):
-        return self.data.shape[0] // (self.len_input + self.len_output)
+        return self.data.shape[0] - (self.len_input + self.len_output)
 
     def __getitem__(self, index):
         return self.data[index*self.len_input : (index+1)*self.len_input], \
