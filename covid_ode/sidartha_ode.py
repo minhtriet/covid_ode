@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import warnings
 
 from torchdiffeq.torchdiffeq import odeint
 
@@ -19,17 +18,11 @@ class SIDARTHEOde(nn.Module):
         super().__init__()
         torch.manual_seed(32)
         torch.set_default_dtype(torch.float64)
-        # observed: infected, death, recover
         self.len_data = len_data
-        # just for the init, every forward round it get changed
-        self.I, self.E, self.H = torch.zeros(1), torch.zeros(1), torch.zeros(1)
+        # observed: infected, death, recover
         # unobserved are set as torch.Parameters
-        self.S = nn.Parameter(torch.tensor([0.5]).to(device))
-        self.D = nn.Parameter(torch.tensor([0.5]).to(device))
-        self.A = nn.Parameter(torch.tensor([0.5]).to(device))
-        self.R = nn.Parameter(torch.tensor([0.5]).to(device))
-        self.T = nn.Parameter(torch.tensor([0.5]).to(device))
-        self.y0 = torch.tensor([self.S, self.I, self.D, self.A, self.R, self.T, self.H, self.E])
+        self.y0 = nn.Parameter(torch.tensor([0.5, 0.5, 0.5, 0.5, 0.5]))  # SDART
+        self.pos_dict = dict(zip(['S', 'D', 'A', 'R', 'T', 'I', 'E', 'H'], range(8)))
         # S susceptible
         # I infected
         # D diagnosed
@@ -38,7 +31,7 @@ class SIDARTHEOde(nn.Module):
         # T threatened
         # H healed
         # E extinct
-        
+
         # transmission rate
         self.alpha = nn.Parameter(torch.tensor([alpha])).to(device)
         self.beta = nn.Parameter(torch.tensor([beta])).to(device)
@@ -48,8 +41,8 @@ class SIDARTHEOde(nn.Module):
         self.epsilon = nn.Parameter(torch.tensor([epsilon])).to(device)
         self.theta = nn.Parameter(torch.tensor([theta])).to(device)
         # develop symptom rate
-        self.zeta = nn.Parameter(torch.tensor([zeta])).to(device)   # ζ
-        self.eta = nn.Parameter(torch.tensor([eta])).to(device)   # η
+        self.zeta = nn.Parameter(torch.tensor([zeta])).to(device)  # ζ
+        self.eta = nn.Parameter(torch.tensor([eta])).to(device)  # η
         # develop life-threatening symptoms rate
         self.mu = nn.Parameter(torch.tensor([mu])).to(device)  # for undetected
         self.nu = nn.Parameter(torch.tensor([nu])).to(device)  # ν for detected
@@ -61,33 +54,31 @@ class SIDARTHEOde(nn.Module):
         self.xi = nn.Parameter(torch.tensor([xi])).to(device)  # ξ
         self.rho = nn.Parameter(torch.tensor([rho])).to(device)
         self.sigma = nn.Parameter(torch.tensor([sigma])).to(device)
-        #self.double()
+        # self.double()
 
     def f(self, t, y):
-        S, I, D, A, R, T, H, E = y
-        return torch.cat([S * (self.alpha * I + self.beta * D + self.gamma * A + self.delta * R),  # S
-                             S*(self.alpha*I + self.beta*D + self.gamma*A + self.delta*R) - (self.epsilon + self.zeta + self.lambda_)*I,  # I
-                             self.epsilon*I - (self.eta + self.rho)*D,   # D
-                             self.zeta*I - (self.theta + self.mu + self.kappa)*A,  # A
-                             self.eta*D + self.theta*A - (self.nu + self.xi)*R,   # R
-                             self.mu*A + self.nu*R - (self.sigma + self.tau)*T,     # dTdt
-                             self.lambda_*I + self.rho*D + self.kappa*A + self.xi*R + self.sigma*T,    # dH
-                             self.tau*T    # E
-                            ])
-        # return torch.tensor([S*(self.alpha*I + self.beta*D + self.gamma*A + self.delta*R),    # S
-        #                      S*(self.alpha*I + self.beta*D + self.gamma*A + self.delta*R) - (self.epsilon + self.zeta + self.lambda_)*I,  # I
-        #                      self.epsilon*I - (self.eta + self.rho)*D,   # D
-        #                      self.zeta*I - (self.theta + self.mu + self.kappa)*A,  # A
-        #                      self.eta*D + self.theta*A - (self.nu + self.xi)*R,   # R
-        #                      self.mu*A + self.nu*R - (self.sigma + self.tau)*T,     # dTdt
-        #                      self.lambda_*I + self.rho*D + self.kappa*A + self.xi*R + self.sigma*T,    # dH
-        #                      self.tau*T    # E
-        #                     ], dtype=torch.float64, requires_grad=True)
+        return torch.cat([y[self.pos_dict['S']] * (
+                self.alpha * y[self.pos_dict['I']] + self.beta * y[self.pos_dict['D']] + self.gamma * y[
+            self.pos_dict['A']] + self.delta * y[self.pos_dict['R']]),  # S
+                          self.epsilon * y[self.pos_dict['I']] - (self.eta + self.rho) * y[self.pos_dict['D']],  # D
+                          self.zeta * y[self.pos_dict['I']] - (self.theta + self.mu + self.kappa) * y[
+                              self.pos_dict['A']],  # A
+                          self.eta * y[self.pos_dict['D']] + self.theta * y[self.pos_dict['A']] - (self.nu + self.xi) *
+                          y[self.pos_dict['R']],  # R
+                          self.mu * y[self.pos_dict['A']] + self.nu * y[self.pos_dict['R']] - (self.sigma + self.tau) *
+                          y[self.pos_dict['T']],  # T
+                          y[self.pos_dict['S']] * (self.alpha * y[self.pos_dict['I']] + self.beta * y[
+                              self.pos_dict['D']] + self.gamma * y[
+                                                       self.pos_dict['A']] + self.delta * y[self.pos_dict['R']]) - (
+                                  self.epsilon + self.zeta + self.lambda_) * y[self.pos_dict['I']],  # I
+                          self.lambda_ * y[self.pos_dict['I']] + self.rho * y[self.pos_dict['D']] + self.kappa * y[
+                              self.pos_dict['A']] + self.xi * y[self.pos_dict['R']] + self.sigma * y[
+                              self.pos_dict['T']],  # dH
+                          self.tau * y[self.pos_dict['T']]  # E
+                          ])
 
     def forward(self, I0, E0, H0):
-        self.y0[1] = I0 if I0 else self.y0[1]
-        self.y0[7] = E0 if E0 else self.y0[7]
-        self.y0[6] = H0 if H0 else self.y0[6]
-        time_range = torch.linspace(0, self.len_data, self.len_data+1)
-        return odeint(self.f, t=time_range, y0=self.y0, method='rk4')#.double()
-
+        time_range = torch.linspace(0, self.len_data, self.len_data + 1)
+        return odeint(self.f, t=time_range,
+                      y0=torch.cat((self.y0, torch.tensor([I0, E0, H0]))),
+                      method='rk4')
