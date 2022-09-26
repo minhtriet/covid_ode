@@ -8,8 +8,8 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class SIDARTHEOde(nn.Module):
     def __init__(self, len_data,
-                 alpha=0.57, beta=0.11, delta=0.11, gamma=0.456, epsilon=0.171, theta=0.371, zeta=0.125, eta=0.125,
-                 mu=0.017, nu=0.027, tau=0.01, lambda_=0.034, rho=0.034, kappa=0.017, xi=0.017, sigma=0.017):
+                 α=0.57, β=0.11, δ=0.11, γ=0.456, ε=0.171, θ=0.371, ζ=0.125, η=0.125,
+                 μ=0.017, ν=0.027, τ=0.01, λ=0.034, ρ=0.034, κ=0.017, ξ=0.017, σ=0.017):
         """
         α=0.570, β=δ=0.011, γ=0.456, ε=0.171, θ=0.371, ζ=η=0.125, μ=0.017, ν=0.027, τ=0.01,
         λ = ρ = 0.034 and κ = ξ = σ = 0.017
@@ -33,49 +33,45 @@ class SIDARTHEOde(nn.Module):
         # E extinct
 
         # transmission rate
-        self.alpha = nn.Parameter(torch.tensor([alpha])).to(device)
-        self.beta = nn.Parameter(torch.tensor([beta])).to(device)
-        self.gamma = nn.Parameter(torch.tensor([gamma])).to(device)
-        self.delta = nn.Parameter(torch.tensor([delta])).to(device)
+        self.α = nn.Parameter(torch.tensor([α])).to(device)
+        self.β = nn.Parameter(torch.tensor([β])).to(device)
+        self.γ = nn.Parameter(torch.tensor([γ])).to(device)
+        self.δ = nn.Parameter(torch.tensor([δ])).to(device)
         # detection rate
-        self.epsilon = nn.Parameter(torch.tensor([epsilon])).to(device)
-        self.theta = nn.Parameter(torch.tensor([theta])).to(device)
+        self.ε = nn.Parameter(torch.tensor([ε])).to(device)
+        self.θ = nn.Parameter(torch.tensor([θ])).to(device)
         # develop symptom rate
-        self.zeta = nn.Parameter(torch.tensor([zeta])).to(device)  # ζ
-        self.eta = nn.Parameter(torch.tensor([eta])).to(device)  # η
+        self.ζ = nn.Parameter(torch.tensor([ζ])).to(device)
+        self.η = nn.Parameter(torch.tensor([η])).to(device)
         # develop life-threatening symptoms rate
-        self.mu = nn.Parameter(torch.tensor([mu])).to(device)  # for undetected
-        self.nu = nn.Parameter(torch.tensor([nu])).to(device)  # ν for detected
+        self.μ = nn.Parameter(torch.tensor([μ])).to(device)  # for undetected
+        self.ν = nn.Parameter(torch.tensor([ν])).to(device)  # for detected
         # mortality rate
-        self.tau = nn.Parameter(torch.tensor([tau])).to(device)
+        self.τ = nn.Parameter(torch.tensor([τ])).to(device)
         # recovery rate
-        self.lambda_ = nn.Parameter(torch.tensor([lambda_])).to(device)
-        self.kappa = nn.Parameter(torch.tensor([kappa])).to(device)
-        self.xi = nn.Parameter(torch.tensor([xi])).to(device)  # ξ
-        self.rho = nn.Parameter(torch.tensor([rho])).to(device)
-        self.sigma = nn.Parameter(torch.tensor([sigma])).to(device)
-        # self.double()
+        self.λ = nn.Parameter(torch.tensor([λ])).to(device)
+        self.κ = nn.Parameter(torch.tensor([κ])).to(device)
+        self.ξ = nn.Parameter(torch.tensor([ξ])).to(device)
+        self.ρ = nn.Parameter(torch.tensor([ρ])).to(device)
+        self.σ = nn.Parameter(torch.tensor([σ])).to(device)
 
     def f(self, t, y):
-        return torch.cat([y[self.pos_dict['S']] * (
-                self.alpha * y[self.pos_dict['I']] + self.beta * y[self.pos_dict['D']] + self.gamma * y[
-            self.pos_dict['A']] + self.delta * y[self.pos_dict['R']]),  # S
-                          self.epsilon * y[self.pos_dict['I']] - (self.eta + self.rho) * y[self.pos_dict['D']],  # D
-                          self.zeta * y[self.pos_dict['I']] - (self.theta + self.mu + self.kappa) * y[
-                              self.pos_dict['A']],  # A
-                          self.eta * y[self.pos_dict['D']] + self.theta * y[self.pos_dict['A']] - (self.nu + self.xi) *
-                          y[self.pos_dict['R']],  # R
-                          self.mu * y[self.pos_dict['A']] + self.nu * y[self.pos_dict['R']] - (self.sigma + self.tau) *
-                          y[self.pos_dict['T']],  # T
-                          y[self.pos_dict['S']] * (self.alpha * y[self.pos_dict['I']] + self.beta * y[
-                              self.pos_dict['D']] + self.gamma * y[
-                                                       self.pos_dict['A']] + self.delta * y[self.pos_dict['R']]) - (
-                                  self.epsilon + self.zeta + self.lambda_) * y[self.pos_dict['I']],  # I
-                          self.lambda_ * y[self.pos_dict['I']] + self.rho * y[self.pos_dict['D']] + self.kappa * y[
-                              self.pos_dict['A']] + self.xi * y[self.pos_dict['R']] + self.sigma * y[
-                              self.pos_dict['T']],  # dH
-                          self.tau * y[self.pos_dict['T']]  # E
-                          ])
+        return torch.cat([
+            -y[self.pos_dict['S']] * (self.α * y[self.pos_dict['I']] + self.β * y[self.pos_dict['D']] + self.γ * y[
+                self.pos_dict['A']] + self.δ * y[self.pos_dict['R']]),  # S
+            self.ε * y[self.pos_dict['I']] - (self.η + self.ρ) * y[self.pos_dict['D']],  # D
+            self.ζ * y[self.pos_dict['I']] - (self.θ + self.μ + self.κ) * y[
+                self.pos_dict['A']],  # A
+            self.η * y[self.pos_dict['D']] + self.θ * y[self.pos_dict['A']] - (self.ν + self.ξ) * y[self.pos_dict['R']],  # R
+            self.μ * y[self.pos_dict['A']] + self.ν * y[self.pos_dict['R']] - (self.σ + self.τ) * y[self.pos_dict['T']],  # T
+            y[self.pos_dict['S']] * (self.α * y[self.pos_dict['I']] + self.β * y[
+                self.pos_dict['D']] + self.γ * y[
+                                         self.pos_dict['A']] + self.δ * y[self.pos_dict['R']]) - (
+                    self.ε + self.ζ + self.λ) * y[self.pos_dict['I']],  # I
+            self.τ * y[self.pos_dict['T']],  # E
+            self.λ * y[self.pos_dict['I']] + self.ρ * y[self.pos_dict['D']] + self.κ * y[
+                self.pos_dict['A']] + self.ξ * y[self.pos_dict['R']] + self.σ * y[self.pos_dict['T']],  # H
+        ])
 
     def forward(self, I0, E0, H0):
         time_range = torch.linspace(0, self.len_data, self.len_data + 1)
