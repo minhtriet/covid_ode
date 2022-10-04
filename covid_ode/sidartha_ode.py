@@ -21,8 +21,8 @@ class SIDARTHEOde(nn.Module):
         self.len_data = len_data
         # observed: infected, death, recover
         # unobserved are set as torch.Parameters
-        self.y0 = nn.Parameter(torch.tensor([0.5, 0.5, 0.5, 0.5, 0.5]))  # SDART
-        self.pos_dict = dict(zip(['S', 'D', 'A', 'R', 'T', 'I', 'E', 'H'], range(8)))
+        self.y0 = nn.Parameter(torch.tensor([0.5, 0.5, 0.5, 0.5, 0.5]))  # SIART
+        self.pos_dict = dict(zip(['S', 'I', 'A', 'R', 'T', 'D', 'E', 'H'], range(8)))
         # S susceptible
         # I infected
         # D diagnosed
@@ -59,22 +59,20 @@ class SIDARTHEOde(nn.Module):
         return torch.cat([
             -y[self.pos_dict['S']] * (self.α * y[self.pos_dict['I']] + self.β * y[self.pos_dict['D']] + self.γ * y[
                 self.pos_dict['A']] + self.δ * y[self.pos_dict['R']]),  # S
-            self.ε * y[self.pos_dict['I']] - (self.η + self.ρ) * y[self.pos_dict['D']],  # D
-            self.ζ * y[self.pos_dict['I']] - (self.θ + self.μ + self.κ) * y[
-                self.pos_dict['A']],  # A
+            y[self.pos_dict['S']] * (self.α * y[self.pos_dict['I']] + self.β * y[
+                self.pos_dict['D']] + self.γ * y[ self.pos_dict['A']] + self.δ * y[self.pos_dict['R']]) -
+                (self.ε + self.ζ + self.λ) * y[self.pos_dict['I']],  # I
+            self.ζ * y[self.pos_dict['I']] - (self.θ + self.μ + self.κ) * y[self.pos_dict['A']],  # A
             self.η * y[self.pos_dict['D']] + self.θ * y[self.pos_dict['A']] - (self.ν + self.ξ) * y[self.pos_dict['R']],  # R
             self.μ * y[self.pos_dict['A']] + self.ν * y[self.pos_dict['R']] - (self.σ + self.τ) * y[self.pos_dict['T']],  # T
-            y[self.pos_dict['S']] * (self.α * y[self.pos_dict['I']] + self.β * y[
-                self.pos_dict['D']] + self.γ * y[
-                                         self.pos_dict['A']] + self.δ * y[self.pos_dict['R']]) - (
-                    self.ε + self.ζ + self.λ) * y[self.pos_dict['I']],  # I
+            self.ε * y[self.pos_dict['I']] - (self.η + self.ρ) * y[self.pos_dict['D']],  # D
             self.τ * y[self.pos_dict['T']],  # E
             self.λ * y[self.pos_dict['I']] + self.ρ * y[self.pos_dict['D']] + self.κ * y[
                 self.pos_dict['A']] + self.ξ * y[self.pos_dict['R']] + self.σ * y[self.pos_dict['T']],  # H
         ])
 
-    def forward(self, I0, E0, H0):
+    def forward(self, D0, E0, H0):
         time_range = torch.linspace(0, self.len_data, self.len_data + 1)
         return odeint(self.f, t=time_range,
-                      y0=torch.cat((self.y0, torch.tensor([I0, E0, H0]))),
+                      y0=torch.cat((self.y0, torch.tensor([D0, E0, H0]))),
                       method='rk4')
